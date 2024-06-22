@@ -1,0 +1,6 @@
+@zm_todo_HostAddress = http://localhost:5168
+
+GET {{zm_todo_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
