@@ -1,5 +1,8 @@
-﻿
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
+using System.Linq;
+using System.Threading.Tasks;
+using zm_todo.Validation;
+using static zm_todo.Model.TodoEnums;
 
 namespace zm_todo.Model
 {
@@ -17,6 +20,7 @@ namespace zm_todo.Model
             var todos = await _context.Todos
                 .Include(t => t.Tags)
                 .Include(t => t.Comments)
+                .Include(t => t.AssignedTo)
                 .ToListAsync();
 
             return todos.Select(t => new TodoDTO
@@ -30,11 +34,16 @@ namespace zm_todo.Model
                 Stage = t.Stage,
                 CreatedBy = t.CreatedBy,
                 CreatedAt = t.CreatedAt,
+                Owned = new EmailAddressDTO
+                {
+                    Id = t.Owned.Id,
+                    Email = t.Owned.Email,
+                    DisplayName = t.Owned.DisplayName,
+                },
                 Tags = t.Tags.Select(tag => new TagDTO
                 {
                     Id = tag.Id,
-                    TodoId = tag.TodoId,
-                    Name = tag.Name
+                    Name = tag.Name.ToString()
                 }).ToList(),
                 Comments = t.Comments.Select(comment => new CommentDTO
                 {
@@ -43,7 +52,14 @@ namespace zm_todo.Model
                     Text = comment.Text,
                     CreatedBy = comment.CreatedBy,
                     CreatedAt = comment.CreatedAt
-                }).ToList()
+                }).ToList(),
+                AssignedTo = new List<TodoAssignedToEmailAddressDTO>(t.AssignedTo.Select(at => new TodoAssignedToEmailAddressDTO
+                {
+                    Id = at.Id,
+                    TodoId = at.TodoId,
+                    DisplayName= at.DisplayName,
+                    Email = at.Email,
+                }))
             }).ToList();
         }
 
@@ -52,6 +68,7 @@ namespace zm_todo.Model
             var todo = await _context.Todos
                 .Include(t => t.Tags)
                 .Include(t => t.Comments)
+                .Include(t => t.AssignedTo)
                 .FirstOrDefaultAsync(t => t.Id == id);
 
             if (todo == null) return null;
@@ -67,11 +84,16 @@ namespace zm_todo.Model
                 Stage = todo.Stage,
                 CreatedBy = todo.CreatedBy,
                 CreatedAt = todo.CreatedAt,
+                Owned = new EmailAddressDTO
+                {
+                    Id = todo.Owned.Id,
+                    Email = todo.Owned.Email,
+                    DisplayName = todo.Owned.DisplayName,
+                },
                 Tags = todo.Tags.Select(tag => new TagDTO
                 {
                     Id = tag.Id,
-                    TodoId = tag.TodoId,
-                    Name = tag.Name
+                    Name = tag.Name.ToString()
                 }).ToList(),
                 Comments = todo.Comments.Select(comment => new CommentDTO
                 {
@@ -80,7 +102,14 @@ namespace zm_todo.Model
                     Text = comment.Text,
                     CreatedBy = comment.CreatedBy,
                     CreatedAt = comment.CreatedAt
-                }).ToList()
+                }).ToList(),
+                AssignedTo = new List<TodoAssignedToEmailAddressDTO>(todo.AssignedTo.Select(at => new TodoAssignedToEmailAddressDTO
+                {
+                    Id = at.Id,
+                    TodoId = at.TodoId,
+                    Email = at.Email,
+                    DisplayName = at.DisplayName
+                }))
             };
         }
 
@@ -96,10 +125,14 @@ namespace zm_todo.Model
                 Stage = todoDTO.Stage,
                 CreatedBy = todoDTO.CreatedBy,
                 CreatedAt = todoDTO.CreatedAt,
+                Owned = new EmailAddress
+                {
+                    Email = todoDTO.Owned.Email,
+                    DisplayName = todoDTO.Owned.DisplayName
+                },
                 Tags = todoDTO.Tags.Select(tagDTO => new Tag
                 {
-                    TodoId = tagDTO.TodoId,
-                    Name = tagDTO.Name
+                    Name = (TagEnum)Enum.Parse(typeof(TagEnum), tagDTO.Name)
                 }).ToList(),
                 Comments = todoDTO.Comments.Select(commentDTO => new Comment
                 {
@@ -107,7 +140,13 @@ namespace zm_todo.Model
                     Text = commentDTO.Text,
                     CreatedBy = commentDTO.CreatedBy,
                     CreatedAt = commentDTO.CreatedAt
-                }).ToList()
+                }).ToList(),
+                AssignedTo = new List<TodoAssignedToEmailAddress>(todoDTO.AssignedTo.Select(a => new TodoAssignedToEmailAddress
+                {
+                    TodoId = a.TodoId,
+                    Email = a.Email,
+                    DisplayName = a.DisplayName
+                }))
             };
 
             _context.Todos.Add(todo);
@@ -119,6 +158,7 @@ namespace zm_todo.Model
             var todo = await _context.Todos
                 .Include(t => t.Tags)
                 .Include(t => t.Comments)
+                .Include(t => t.AssignedTo)
                 .FirstOrDefaultAsync(t => t.Id == todoDTO.Id);
 
             if (todo == null) return;
@@ -131,23 +171,34 @@ namespace zm_todo.Model
             todo.Stage = todoDTO.Stage;
             todo.CreatedBy = todoDTO.CreatedBy;
             todo.CreatedAt = todoDTO.CreatedAt;
+            todo.Owned.Email = todoDTO.Owned.Email;
+            todo.Owned.DisplayName = todoDTO.Owned.DisplayName;
 
-            // Update Tags
+            // Clear and re-add Tags
             todo.Tags.Clear();
             todo.Tags.AddRange(todoDTO.Tags.Select(tagDTO => new Tag
             {
-                TodoId = tagDTO.TodoId,
-                Name = tagDTO.Name
+                Name = (TagEnum)Enum.Parse(typeof(TagEnum), tagDTO.Name)
             }));
 
-            // Update Comments
+            // Clear and re-add Comments
             todo.Comments.Clear();
-            todo.Comments.AddRange(todoDTO.Comments.Select(commentDTO => new Comment
+            todo.Comments.AddRange(todoDTO.Comments.Select(commentDto => new Comment
             {
-                TodoId = commentDTO.TodoId,
-                Text = commentDTO.Text,
-                CreatedBy = commentDTO.CreatedBy,
-                CreatedAt = commentDTO.CreatedAt
+                TodoId = commentDto.TodoId,
+                Text = commentDto.Text,
+                CreatedBy = commentDto.CreatedBy,
+                CreatedAt = commentDto.CreatedAt
+            }));
+
+            // Clear and re-add AssignedTo
+            todo.AssignedTo.Clear();
+            todo.AssignedTo.AddRange(todoDTO.AssignedTo.Select(a => new TodoAssignedToEmailAddress
+            {
+                TodoId = a.TodoId,
+                Email = a.Email,
+                DisplayName = a.DisplayName,
+               
             }));
 
             await _context.SaveChangesAsync();

@@ -1,6 +1,7 @@
 using FirebaseAdmin;
 using FirebaseAdmin.Auth;
 using Google.Apis.Auth.OAuth2;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using System.Net;
 using zm_todo.Logger;
@@ -61,9 +62,20 @@ app.UseCors("AllowSpecificOrigin");
 
 app.Use(async (context, next) =>
 {
+
+    var endpoint = context.GetEndpoint();
+    if (endpoint?.Metadata?.GetMetadata<IAllowAnonymous>() != null)
+    {
+        await next();
+        return;
+    }
+
+
     if (context.Request.Headers.ContainsKey("Authorization"))
     {
         var token = context.Request.Headers["Authorization"].ToString().Replace("Bearer ", string.Empty);
+
+
 
         try
         {
